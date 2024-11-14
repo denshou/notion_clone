@@ -84,7 +84,7 @@ function getPages() {
 }
 getPages();
 
-// 신규 페이지 추가 버튼(페이지 최상단 버튼, 개인 페이지 버튼)
+// 신규 페이지 추가 버튼(페이지 최상단 버튼, 개인 페이지 버튼)(변경사항-글생성 후 바로 글과 연결시키기 구현)
 function MakeNewPage(className) {
   const buildBtn = document.querySelector(`.${className}`);
   const notionWrap__section = document.querySelector(".notionWrap__section");
@@ -105,6 +105,14 @@ function MakeNewPage(className) {
         underPageToggle,
         MakeUnderPage
       );
+      const ListItem__pageLink = document.querySelectorAll(
+        ".ListItem__pageLink"
+      );
+      ListItem__pageLink.forEach((e) => {
+        if (Number(e.getAttribute("data-url")) === data.id) {
+          e.click();
+        }
+      });
     });
   });
 }
@@ -112,8 +120,13 @@ MakeNewPage("ListItem__buildBtn");
 MakeNewPage("buildIcon");
 
 //////////////////////////////////////////////
-// 하위 페이지 추가 버튼(리스트의 +버튼들) 보류
+// 하위 페이지 추가 버튼
+// (변경사항 - MakeUnderPage시 underPageToggle에서 상위폴더를 클릭하게 변경[생성후 페이지에서 글 쓰면 저장안되는 현상 때문에 변경])
+
 function MakeUnderPage() {
+  const personalPage__ListItem = document.querySelectorAll(
+    ".personalPage__ListItem"
+  );
   const notionWrap__section = document.querySelector(".notionWrap__section");
   const ListItem__addBtn = document.querySelectorAll(".ListItem__addBtn");
   ListItem__addBtn.forEach((list, idx) => {
@@ -124,18 +137,23 @@ function MakeUnderPage() {
     newList.addEventListener("click", function () {
       const targetA = document.querySelectorAll(".ListItem__pageLink");
       const url = targetA[idx].dataset.url;
-      postData(url).then((data) => {
-        console.log(underList(data.id, data.title));
-        pages[url] = underList(data.id, data.title);
+      postData(url).then(async (data) => {
         history.pushState({ page: url, custom: "test" }, "", `/${url}`);
-        notionWrap__section.innerHTML = newPage(data.title);
-        targetA[idx].parentElement.after(underList(data.id, data.title));
         resetClickEventAll(
           addDeleteListeners,
           pageGo,
           underPageToggle,
           MakeUnderPage
         );
+        // 하위문서 토글 버튼 클릭
+        const under_btn = personalPage__ListItem[idx].querySelector(
+          ".ListItem__underBtn"
+        );
+        under_btn.click();
+
+        if (!under_btn.classList.contains("seen")) {
+          under_btn.click();
+        }
       });
     });
   });
@@ -819,11 +837,11 @@ function newList(id, title) {
   listTemplet.classList.add("bgChange");
   listTemplet.innerHTML = `
     <div class="ListItem__underBtn bgChange">
-      <img
-        class="docIcon icon"
-        src="./img/document.png"
-        alt="문서 아이콘"
-      />
+      <div class="icon-container"> 
+              <svg class="icon1" width="16px" viewBox="0 0 24.00 24.00" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#949491" transform="matrix(-1, 0, 0, 1, 0, 0)" stroke-width="0.00024000000000000003"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#CCCCCC" stroke-width="0.144"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M9.29289 1.29289C9.48043 1.10536 9.73478 1 10 1H18C19.6569 1 21 2.34315 21 4V20C21 21.6569 19.6569 23 18 23H6C4.34315 23 3 21.6569 3 20V8C3 7.73478 3.10536 7.48043 3.29289 7.29289L9.29289 1.29289ZM18 3H11V8C11 8.55228 10.5523 9 10 9H5V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V4C19 3.44772 18.5523 3 18 3ZM6.41421 7H9V4.41421L6.41421 7ZM7 13C7 12.4477 7.44772 12 8 12H16C16.5523 12 17 12.4477 17 13C17 13.5523 16.5523 14 16 14H8C7.44772 14 7 13.5523 7 13ZM7 17C7 16.4477 7.44772 16 8 16H16C16.5523 16 17 16.4477 17 17C17 17.5523 16.5523 18 16 18H8C7.44772 18 7 17.5523 7 17Z" fill="#949494"></path> </g></svg>    
+              <svg class="icon2" role="graphics-symbol" viewBox="0 0 12 12" style="width: 15px; height: 15px; display: block; fill: rgba(55, 53, 47, 0.35); flex-shrink: 0; transition: transform 200ms ease-out; transform: rotateZ(0deg);"><path d="M6.02734 8.80274C6.27148 8.80274 6.47168 8.71484 6.66211 8.51465L10.2803 4.82324C10.4268 4.67676 10.5 4.49609 10.5 4.28125C10.5 3.85156 10.1484 3.5 9.72363 3.5C9.50879 3.5 9.30859 3.58789 9.15234 3.74902L6.03223 6.9668L2.90722 3.74902C2.74609 3.58789 2.55078 3.5 2.33105 3.5C1.90137 3.5 1.55469 3.85156 1.55469 4.28125C1.55469 4.49609 1.62793 4.67676 1.77441 4.82324L5.39258 8.51465C5.58789 8.71973 5.78808 8.80274 6.02734 8.80274Z"></path></svg>
+              <svg class="icon3" role="graphics-symbol" viewBox="0 0 12 12" style=" opacity:0; width: 15px; height: 15px; display: block; fill: rgba(55, 53, 47, 0.35); flex-shrink: 0; transition: transform 200ms ease-out; transform: rotateZ(0deg);"><path d="M6.02734 8.80274C6.27148 8.80274 6.47168 8.71484 6.66211 8.51465L10.2803 4.82324C10.4268 4.67676 10.5 4.49609 10.5 4.28125C10.5 3.85156 10.1484 3.5 9.72363 3.5C9.50879 3.5 9.30859 3.58789 9.15234 3.74902L6.03223 6.9668L2.90722 3.74902C2.74609 3.58789 2.55078 3.5 2.33105 3.5C1.90137 3.5 1.55469 3.85156 1.55469 4.28125C1.55469 4.49609 1.62793 4.67676 1.77441 4.82324L5.39258 8.51465C5.58789 8.71973 5.78808 8.80274 6.02734 8.80274Z"></path></svg>
+            </div>
     </div>
     <a href="/${id}" data-url="${id}" class="ListItem__pageLink">
       <span>${title}</span>
@@ -871,6 +889,7 @@ function newPage(title, content) {
 ///////////////////////////////////////////////////예정
 
 // 하위 페이지 토글
+// (변경사항 - MakeUnderPage시 underPageToggle에서 상위폴더를 클릭하게 변경[생성후 페이지에서 글 쓰면 저장안되는 현상 때문에 변경])
 function underPageToggle() {
   const ListItem__underBtn = document.querySelectorAll(".ListItem__underBtn");
   const ListItem__pageLink = document.querySelectorAll(".ListItem__pageLink");
@@ -884,17 +903,21 @@ function underPageToggle() {
     const newList = document.querySelectorAll(".ListItem__underBtn")[idx];
 
     // 새 이벤트 리스너 추가
-    newList.addEventListener("click", function () {
-      if (!newList.classList.contains("seen")) {
-        newList.classList.add("seen");
+    newList.addEventListener("click", function (e) {
+      if (!this.classList.contains("seen")) {
+        this.classList.add("seen");
         const url = ListItem__pageLink[idx].dataset.url;
         getContent(url).then((content) => {
           const docs = content.documents;
+          console.log(docs);
+          if (docs.length === 0) {
+            this.classList.remove("seen");
+          }
           docs.forEach((doc) => {
             getContent(doc.id).then((content) => {
               pages[doc.id] = newPage(content.title, content.content);
             });
-            newList.parentElement.after(underList(doc.id, doc.title));
+            this.parentElement.after(underList(doc.id, doc.title));
           });
 
           resetClickEventAll(
@@ -903,16 +926,25 @@ function underPageToggle() {
             underPageToggle,
             MakeUnderPage
           );
+          const ListItem__pageLink = document.querySelectorAll(
+            ".ListItem__pageLink"
+          );
+          ListItem__pageLink.forEach((list, idx) => {
+            if (Number(list.getAttribute("data-url")) === content.id) {
+              ListItem__pageLink[idx].click();
+            }
+          });
+          e.stopImmediatePropagation();
         });
       } else {
-        newList.classList.remove("seen");
-        if (newList.parentElement.nextElementSibling) {
+        this.classList.remove("seen");
+        if (this.parentElement.nextElementSibling) {
           while (
-            newList.parentElement.nextElementSibling &&
-            newList.parentElement.nextElementSibling.classList.value ===
+            this.parentElement.nextElementSibling &&
+            this.parentElement.nextElementSibling.classList.value ===
               "personalPage__ListItem--next"
           ) {
-            newList.parentElement.nextElementSibling.remove();
+            this.parentElement.nextElementSibling.remove();
           }
         }
       }
@@ -935,11 +967,11 @@ function underList(id, title) {
     <ul class="personalPage__PageList--next">
       <li class="personalPage__ListItem bgChange">
         <div class="ListItem__underBtn bgChange">
-          <img
-            class="docIcon icon"
-            src="./img/document.png"
-            alt="문서 아이콘"
-          />
+          <div class="icon-container"> 
+              <svg class="icon1" width="16px" viewBox="0 0 24.00 24.00" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#949491" transform="matrix(-1, 0, 0, 1, 0, 0)" stroke-width="0.00024000000000000003"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#CCCCCC" stroke-width="0.144"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M9.29289 1.29289C9.48043 1.10536 9.73478 1 10 1H18C19.6569 1 21 2.34315 21 4V20C21 21.6569 19.6569 23 18 23H6C4.34315 23 3 21.6569 3 20V8C3 7.73478 3.10536 7.48043 3.29289 7.29289L9.29289 1.29289ZM18 3H11V8C11 8.55228 10.5523 9 10 9H5V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V4C19 3.44772 18.5523 3 18 3ZM6.41421 7H9V4.41421L6.41421 7ZM7 13C7 12.4477 7.44772 12 8 12H16C16.5523 12 17 12.4477 17 13C17 13.5523 16.5523 14 16 14H8C7.44772 14 7 13.5523 7 13ZM7 17C7 16.4477 7.44772 16 8 16H16C16.5523 16 17 16.4477 17 17C17 17.5523 16.5523 18 16 18H8C7.44772 18 7 17.5523 7 17Z" fill="#949494"></path> </g></svg>    
+              <svg class="icon2" role="graphics-symbol" viewBox="0 0 12 12" style="width: 15px; height: 15px; display: block; fill: rgba(55, 53, 47, 0.35); flex-shrink: 0; transition: transform 200ms ease-out; transform: rotateZ(0deg);"><path d="M6.02734 8.80274C6.27148 8.80274 6.47168 8.71484 6.66211 8.51465L10.2803 4.82324C10.4268 4.67676 10.5 4.49609 10.5 4.28125C10.5 3.85156 10.1484 3.5 9.72363 3.5C9.50879 3.5 9.30859 3.58789 9.15234 3.74902L6.03223 6.9668L2.90722 3.74902C2.74609 3.58789 2.55078 3.5 2.33105 3.5C1.90137 3.5 1.55469 3.85156 1.55469 4.28125C1.55469 4.49609 1.62793 4.67676 1.77441 4.82324L5.39258 8.51465C5.58789 8.71973 5.78808 8.80274 6.02734 8.80274Z"></path></svg>
+              <svg class="icon3" role="graphics-symbol" viewBox="0 0 12 12" style=" opacity:0; width: 15px; height: 15px; display: block; fill: rgba(55, 53, 47, 0.35); flex-shrink: 0; transition: transform 200ms ease-out; transform: rotateZ(0deg);"><path d="M6.02734 8.80274C6.27148 8.80274 6.47168 8.71484 6.66211 8.51465L10.2803 4.82324C10.4268 4.67676 10.5 4.49609 10.5 4.28125C10.5 3.85156 10.1484 3.5 9.72363 3.5C9.50879 3.5 9.30859 3.58789 9.15234 3.74902L6.03223 6.9668L2.90722 3.74902C2.74609 3.58789 2.55078 3.5 2.33105 3.5C1.90137 3.5 1.55469 3.85156 1.55469 4.28125C1.55469 4.49609 1.62793 4.67676 1.77441 4.82324L5.39258 8.51465C5.58789 8.71973 5.78808 8.80274 6.02734 8.80274Z"></path></svg>
+            </div>
         </div>
         <a href="${id}" data-url="${id}" class="ListItem__pageLink">
           <span>${title}</span>
