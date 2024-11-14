@@ -167,7 +167,8 @@ function pageGo() {
   // 페이지 이동 시 기존 이벤트 리스너 제거 용
   function removeEventListeners() {
     notionWrap__section.removeEventListener("keydown", keydownListener);
-    notionWrap__section.removeEventListener("input", inputListener);
+    notionWrap__section.removeEventListener("input", inputListener1);
+    notionWrap__section.removeEventListener("input", inputListener2);
     notionWrap__section.removeEventListener("focus", focusListener, true);
     notionWrap__section.removeEventListener("blur", blurListener, true);
     notionWrap__section.removeEventListener("click", clickListener);
@@ -175,13 +176,17 @@ function pageGo() {
 
   //이벤트 리스너 정의
   let keydownListener,
-    inputListener,
+    inputListener1,
+    inputListener2,
     focusListener,
     blurListener,
     clickListener;
 
   let url = "";
   ListItem__pageLink.forEach((list) => {
+    // 기존의 이벤트 리스너 제거
+    removeEventListeners();
+
     list.addEventListener("click", function (e) {
       e.preventDefault();
       const personalPage__ListItem = document.querySelectorAll(
@@ -198,9 +203,6 @@ function pageGo() {
       // 중복 이벤트 발생 제게 추가 ---------------------------------------------
 
       url = e.currentTarget.dataset.url;
-
-      // 기존의 이벤트 리스너 제거
-      removeEventListeners();
 
       // 트리 구조를 생성하는 함수
       async function getIdTree() {
@@ -269,23 +271,237 @@ function pageGo() {
         searchTree(idTree, []);
         return parents;
       }
-      
+
       findParents(url).then((result) => {
         const navEl = document.querySelector(".nav");
         if (navEl.hasChildNodes()) navEl.replaceChildren();
         result.forEach((id, i) => {
           const idDiv = document.createElement("div");
           idDiv.textContent = id;
-          idDiv.classList.add("nav_id")
+          idDiv.classList.add("nav_id");
+
+          idDiv.addEventListener("click", (e) => {
+            const id = e.currentTarget.textContent;
+            history.pushState({ page: id }, "", `/${id}`);
+
+            console.log("url", url);
+
+            // 새로운 페이지 콘텐츠 로드
+            getContent(id).then((data) => {
+              const title = data.title;
+              const content = data.content || ""; // content가 null이면 빈 문자열로 설정
+
+              notionWrap__section.innerHTML = `
+              <h1 class="notionWrap__section_title">
+              <input placeholder="New page" value="${title}" />
+              </h1>
+              <section class="notionWrap__section_text">
+              </section>
+               `;
+
+              const contentArr = content.includes("\n\n")
+                ? content.split("\n\n")
+                : [content];
+
+              // content가 존재하면 최상단에 textarea 생성하지 않도록 처리
+              if (contentArr.length > 0 && contentArr[0] !== "") {
+                contentArr.forEach((content) => {
+                  createTextarea(content);
+                });
+              } else {
+                // content가 없다면 최상단 textarea 생성
+                initializeTextarea();
+              }
+
+              // 제목(input) 변경 시 PUT 요청 + 제목 수정시 사이드바도 수정되도록 변경
+              const titleInput = notionWrap__section.querySelector(
+                ".notionWrap__section_title input"
+              );
+              titleInput.addEventListener("input", function () {
+                const updatedTitle = titleInput.value;
+                const updatedContent = getAllTextareasContent();
+
+                // 제목 수정 후 PUT 요청을 통해 서버에 저장
+                editContent(id, updatedTitle, updatedContent);
+                const sidebarItem = document.querySelector(
+                  `.personalPage__PageList .ListItem__pageLink[data-url="${id}"]`
+                );
+                if (sidebarItem) {
+                  sidebarItem.textContent = updatedTitle;
+                }
+              });
+
+              // 콘텐츠 영역에서 textarea의 내용이 변경될 때마다 업데이트
+              inputListener2 = function (event) {
+                const target = event.target;
+                if (target.tagName === "TEXTAREA") {
+                  const updatedTitle = titleInput.value;
+                  const updatedContent = getAllTextareasContent();
+                  console.log(updatedContent);
+                  editContent(id, updatedTitle, updatedContent);
+                  //긴 한줄 문자열 줄바꿈
+                }
+                adjustTextareaHeight(target);
+              };
+              notionWrap__section.addEventListener("input", inputListener2);
+
+              // 페이지 내에서 Enter/Backspace 키 이벤트 처리
+              keydownListener = function (event) {
+                const target = event.target;
+                if (target.tagName !== "TEXTAREA") return;
+
+                if (event.key === "Enter") {
+                  if (event.shiftKey) {
+                    requestAnimationFrame(() => adjustTextareaHeight(target));
+                    return;
+                  } else {
+                    event.preventDefault();
+                    createTextarea();
+                    return;
+                  }
+                }
+
+                if (event.key === "Backspace") {
+                  if (target.value === "") {
+                    const textareas = Array.from(
+                      notionWrap__section.querySelectorAll("textarea")
+                    );
+                    const index = textareas.indexOf(target);
+
+                    if (index > 0) {
+                      event.preventDefault();
+                      target.remove();
+                      textareas[index - 1].focus();
+                    }
+                    //textarea 빈배열일때, backspace눌르면 수정
+                    const updatedTitle = titleInput.value;
+                    const updatedContent = getAllTextareasContent();
+                    editContent(id, updatedTitle, updatedContent);
+                  } else {
+                    requestAnimationFrame(() => adjustTextareaHeight(target));
+                  }
+                }
+              };
+              notionWrap__section.addEventListener("keydown", keydownListener);
+
+              // focus와 blur 이벤트로 placeholder 토글
+              focusListener = function (event) {
+                if (event.target.tagName === "TEXTAREA") {
+                  event.target.placeholder =
+                    "Write something, or press 'space' for AI, '/' for commands...";
+                }
+              };
+              blurListener = function (event) {
+                if (event.target.tagName === "TEXTAREA") {
+                  event.target.placeholder = "";
+                }
+              };
+
+              notionWrap__section.addEventListener(
+                "focus",
+                focusListener,
+                true
+              );
+              notionWrap__section.addEventListener("blur", blurListener, true);
+
+              // 최하단의 `textarea`에 포커스
+              clickListener = function (event) {
+                if (event.target === notionWrap__section) {
+                  focusLastTextarea();
+                }
+              };
+              notionWrap__section.addEventListener("click", clickListener);
+
+              // 페이지 히스토리 상태 변경
+              history.pushState({ page: id, custom: "test" }, "", `/${id}`);
+              // 추가부분
+              if (data.documents.length > 0) {
+                data.documents.forEach((doc) => {
+                  downPage(notionWrap__section, doc.title, doc.id);
+                });
+              }
+              const dPage = document.querySelectorAll(
+                ".notionWrap__section_downPage-text"
+              );
+              dPage.forEach((page) => {
+                page.addEventListener("click", function (e) {
+                  e.preventDefault();
+                  const url = e.currentTarget.dataset.url;
+                  getContent(url).then((data) => {
+                    console.log(data.title, data.content);
+                    const title = data.title;
+                    const content = data.content || ""; // content가 null이면 빈 문자열로 설정
+
+                    notionWrap__section.innerHTML = `
+                  <!-- 타이틀 영역  -->
+                  <h1 class="notionWrap__section_title">
+                    <input placeholder="여기에 제목 입력" value="${title}" />
+                  </h1>
+                  <!-- 컨텐츠 영역 -->
+                  <section class="notionWrap__section_text">
+                  </section>
+                `;
+
+                    const contentArr = content.includes("\n\n")
+                      ? content.split("\n\n")
+                      : [content];
+
+                    // content가 존재하면 최상단에 textarea 생성하지 않도록 처리
+                    if (contentArr.length > 0 && contentArr[0] !== "") {
+                      contentArr.forEach((content) => {
+                        createTextarea(content);
+                      });
+                    } else {
+                      // content가 없다면 최상단 textarea 생성
+                      initializeTextarea();
+                    }
+                    history.pushState(
+                      { page: url, custom: "test" },
+                      "",
+                      `/${url}`
+                    );
+                  });
+                });
+              });
+              // 하위 페이지 포맷
+              function downPage(parent, title, id) {
+                const page = `
+            <div class="notionWrap__section_newPage" id="new_page_${id}">
+            <svg
+              role="graphics-symbol"
+              viewBox="0 0 16 16"
+              class="pageEmpty"
+              style="
+                width: 19.8px;
+                height: 19.8px;
+                display: block;
+                fill: rgb(145, 145, 142);
+                flex-shrink: 0;
+              "
+            >
+              <path
+                d="M4.35645 15.4678H11.6367C13.0996 15.4678 13.8584 14.6953 13.8584 13.2256V7.02539C13.8584 6.0752 13.7354 5.6377 13.1406 5.03613L9.55176 1.38574C8.97754 0.804688 8.50586 0.667969 7.65137 0.667969H4.35645C2.89355 0.667969 2.13477 1.44043 2.13477 2.91016V13.2256C2.13477 14.7021 2.89355 15.4678 4.35645 15.4678ZM4.46582 14.1279C3.80273 14.1279 3.47461 13.7793 3.47461 13.1436V2.99219C3.47461 2.36328 3.80273 2.00781 4.46582 2.00781H7.37793V5.75391C7.37793 6.73145 7.86328 7.20312 8.83398 7.20312H12.5186V13.1436C12.5186 13.7793 12.1836 14.1279 11.5205 14.1279H4.46582ZM8.95703 6.02734C8.67676 6.02734 8.56055 5.9043 8.56055 5.62402V2.19238L12.334 6.02734H8.95703Z"
+              ></path>
+            </svg>
+            <a href="${id}" data-url="${id}" class="notionWrap__section_downPage-text">
+            <span>${title}</span>
+          </a>
+          </div>
+           `;
+                parent.insertAdjacentHTML("beforeend", page);
+              }
+              // 추가부분
+            });
+          });
+
           navEl.appendChild(idDiv);
           if (i < result.length - 1) {
             const slash = document.createElement("span");
-            slash.textContent =  " / ";
+            slash.textContent = " / ";
             navEl.appendChild(slash);
           }
         });
       });
-
 
       // 새로운 페이지 콘텐츠 로드
       getContent(url).then((data) => {
@@ -333,7 +549,7 @@ function pageGo() {
         });
 
         // 콘텐츠 영역에서 textarea의 내용이 변경될 때마다 업데이트
-        inputListener = function (event) {
+        inputListener1 = function (event) {
           const target = event.target;
           if (target.tagName === "TEXTAREA") {
             const updatedTitle = titleInput.value;
@@ -344,7 +560,7 @@ function pageGo() {
           }
           adjustTextareaHeight(target);
         };
-        notionWrap__section.addEventListener("input", inputListener);
+        notionWrap__section.addEventListener("input", inputListener1);
 
         // 페이지 내에서 Enter/Backspace 키 이벤트 처리
         keydownListener = function (event) {
@@ -459,7 +675,7 @@ function pageGo() {
         // 하위 페이지 포맷
         function downPage(parent, title, id) {
           const page = `
-   <div class="notionWrap__section_newPage" id="new_page_${id}">
+          <div class="notionWrap__section_newPage" id="new_page_${id}">
           <svg
             role="graphics-symbol"
             viewBox="0 0 16 16"
@@ -480,7 +696,7 @@ function pageGo() {
           <span>${title}</span>
         </a>
         </div>
-  `;
+         `;
           parent.insertAdjacentHTML("beforeend", page);
         }
         // 추가부분
