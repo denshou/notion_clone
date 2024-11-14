@@ -149,7 +149,10 @@ function addDeleteListeners() {
     delIcon.addEventListener("click", function (e) {
       e.target.parentNode.parentNode.style.display = "none";
       if (!e.target.classList.contains("del")) {
-        delData(e.target.id);
+        const id = e.target.id;
+        const newPageDiv = document.getElementById("new_page_" + id);
+        delData(id);
+        newPageDiv.style.display = "none";
         e.target.classList.add("del");
       }
     })
@@ -181,6 +184,19 @@ function pageGo() {
   ListItem__pageLink.forEach((list) => {
     list.addEventListener("click", function (e) {
       e.preventDefault();
+      const personalPage__ListItem = document.querySelectorAll(
+        ".personalPage__ListItem"
+      );
+      // 중복 이벤트 발생 제게 추가(변경사항) ---------------------------------------------
+      personalPage__ListItem.forEach((list) => {
+        if (list.classList.contains("on")) {
+          e.stopImmediatePropagation();
+          list.classList.remove("on");
+        }
+      });
+      e.currentTarget.parentElement.classList.add("on");
+      // 중복 이벤트 발생 제게 추가 ---------------------------------------------
+
       url = e.currentTarget.dataset.url;
 
       // 기존의 이벤트 리스너 제거
@@ -270,17 +286,16 @@ function pageGo() {
         });
       });
 
+
       // 새로운 페이지 콘텐츠 로드
       getContent(url).then((data) => {
         const title = data.title;
         const content = data.content || ""; // content가 null이면 빈 문자열로 설정
 
         notionWrap__section.innerHTML = `
-          <!-- 타이틀 영역  -->
           <h1 class="notionWrap__section_title">
             <input placeholder="New page" value="${title}" />
           </h1>
-          <!-- 컨텐츠 영역 -->
           <section class="notionWrap__section_text">
           </section>
         `;
@@ -396,6 +411,79 @@ function pageGo() {
 
         // 페이지 히스토리 상태 변경
         history.pushState({ page: url, custom: "test" }, "", `/${url}`);
+        // 추가부분
+        if (data.documents.length > 0) {
+          data.documents.forEach((doc) => {
+            downPage(notionWrap__section, doc.title, doc.id);
+          });
+        }
+        const dPage = document.querySelectorAll(
+          ".notionWrap__section_downPage-text"
+        );
+        dPage.forEach((page) => {
+          page.addEventListener("click", function (e) {
+            e.preventDefault();
+            const url = e.currentTarget.dataset.url;
+            getContent(url).then((data) => {
+              console.log(data.title, data.content);
+              const title = data.title;
+              const content = data.content || ""; // content가 null이면 빈 문자열로 설정
+
+              notionWrap__section.innerHTML = `
+                <!-- 타이틀 영역  -->
+                <h1 class="notionWrap__section_title">
+                  <input placeholder="여기에 제목 입력" value="${title}" />
+                </h1>
+                <!-- 컨텐츠 영역 -->
+                <section class="notionWrap__section_text">
+                </section>
+              `;
+
+              const contentArr = content.includes("\n\n")
+                ? content.split("\n\n")
+                : [content];
+
+              // content가 존재하면 최상단에 textarea 생성하지 않도록 처리
+              if (contentArr.length > 0 && contentArr[0] !== "") {
+                contentArr.forEach((content) => {
+                  createTextarea(content);
+                });
+              } else {
+                // content가 없다면 최상단 textarea 생성
+                initializeTextarea();
+              }
+              history.pushState({ page: url, custom: "test" }, "", `/${url}`);
+            });
+          });
+        });
+        // 하위 페이지 포맷
+        function downPage(parent, title, id) {
+          const page = `
+   <div class="notionWrap__section_newPage" id="new_page_${id}">
+          <svg
+            role="graphics-symbol"
+            viewBox="0 0 16 16"
+            class="pageEmpty"
+            style="
+              width: 19.8px;
+              height: 19.8px;
+              display: block;
+              fill: rgb(145, 145, 142);
+              flex-shrink: 0;
+            "
+          >
+            <path
+              d="M4.35645 15.4678H11.6367C13.0996 15.4678 13.8584 14.6953 13.8584 13.2256V7.02539C13.8584 6.0752 13.7354 5.6377 13.1406 5.03613L9.55176 1.38574C8.97754 0.804688 8.50586 0.667969 7.65137 0.667969H4.35645C2.89355 0.667969 2.13477 1.44043 2.13477 2.91016V13.2256C2.13477 14.7021 2.89355 15.4678 4.35645 15.4678ZM4.46582 14.1279C3.80273 14.1279 3.47461 13.7793 3.47461 13.1436V2.99219C3.47461 2.36328 3.80273 2.00781 4.46582 2.00781H7.37793V5.75391C7.37793 6.73145 7.86328 7.20312 8.83398 7.20312H12.5186V13.1436C12.5186 13.7793 12.1836 14.1279 11.5205 14.1279H4.46582ZM8.95703 6.02734C8.67676 6.02734 8.56055 5.9043 8.56055 5.62402V2.19238L12.334 6.02734H8.95703Z"
+            ></path>
+          </svg>
+          <a href="${id}" data-url="${id}" class="notionWrap__section_downPage-text">
+          <span>${title}</span>
+        </a>
+        </div>
+  `;
+          parent.insertAdjacentHTML("beforeend", page);
+        }
+        // 추가부분
       });
     });
   });
@@ -546,7 +634,6 @@ function newList(id, title) {
 // 신규 페이지 포맷
 function newPage(title, content) {
   const pageTemplet = `
-    <!-- 타이틀 영역  -->
     <h1 class="notionWrap__section_title">
       <input placeholder="New Page" value="${title}" />
     </h1>
@@ -560,6 +647,7 @@ function newPage(title, content) {
         value="${content}"
       ></textarea>
       </div>
+
   `;
   return pageTemplet;
 }

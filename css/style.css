@@ -27,16 +27,18 @@ a {
 /* 고딕 폰트 */
 .notionWrap {
   display: flex;
+  min-height: 100vh;
 }
 /* 사이드바 */
+/* (변경사항) : 높이값 제거 ------------------------------------------------------------- */
 .notionWrap__sideBar {
   width: 240px;
-  height: 100vh;
   padding: 10px;
   background-color: #f7f7f5;
   position: relative;
   transition: all 0.5s;
 }
+/* (변경사항) : 높이값 제거 ------------------------------------------------------------- */
 /* 좌측 최상단 유저 선택 버튼 */
 .userBtn {
   width: 100%;
@@ -131,7 +133,17 @@ a {
   align-items: center;
   gap: 10px;
 }
-
+/* (변경사항) arrowIcon hover이펙트 추가 */
+.arrowIcon {
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.5s;
+}
+.userBtn:hover .arrowIcon {
+  visibility: visible;
+  opacity: 1;
+}
+/* (변경사항) arrowIcon hover이펙트 추가 */
 .arrowIcon__img,
 .buildIcon__img {
   width: 15px;
@@ -188,6 +200,11 @@ a {
   border-radius: 5px;
   position: relative;
 }
+/* 개인페이지 자료 클릭시 hover이벤트 유지(변경사항) */
+.personalPage__ListItem.on {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+/* 개인페이지 자료 클릭시 hover이벤트 유지(변경사항) */
 .ListItem__buildBtn {
   visibility: hidden;
   opacity: 0;
@@ -269,12 +286,14 @@ a {
   padding-left: 10px;
 }
 /* 메인 페이지 */
+/* (변경사항) : 높이값 제거 ------------------------------------------------------------- */
 .editor {
   width: calc(100% - 240px);
-  height: 100vh;
+
   background-color: #fff;
   padding: 20px;
 }
+/* (변경사항) : 높이값 제거 ------------------------------------------------------------- */
 .notionWrap__section {
   cursor: text;
   display: flex;
@@ -301,6 +320,7 @@ a {
 
 .notionWrap__section_title {
   caret-color: rgb(55, 53, 47);
+
   font-size: 40px;
   line-height: 40px;
   padding: 3px 2px;
