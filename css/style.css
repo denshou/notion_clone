@@ -184,7 +184,7 @@ a {
 }
 .personalPage__ListItem {
   width: 100%;
-  padding: 5px 3px; 
+  padding: 5px 3px;
   border-radius: 5px;
   position: relative;
 }
@@ -411,4 +411,18 @@ a {
 
 .nav {
   height: 44px;
+  margin-top: -20px;
+  display: flex;
+  align-items: center;
+}
+.nav_id {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 2px;
+  font-size: 14px;
+
+  border-radius: 4px;
+}
+.nav_id:hover {
+  background-color: #f1f1ee;
 }

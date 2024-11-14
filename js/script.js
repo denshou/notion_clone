@@ -1,4 +1,3 @@
-
 import { getContent, getData, postData, delData } from "./getdata.js";
 import { editContent } from "./putdata.js";
 ////////////////////////////////////전역변수//////////////////////////////
@@ -186,18 +185,100 @@ function pageGo() {
 
       // 기존의 이벤트 리스너 제거
       removeEventListeners();
+
+      // 트리 구조를 생성하는 함수
+      async function getIdTree() {
+        const data = await getData(); // getData를 통해 데이터를 받아옵니다.
+        const idTree = {};
+
+        // 데이터에서 트리 구조 만들기
+        data.forEach((item) => {
+          const parentId = item.id;
+          idTree[parentId] = {}; // 부모 ID 아래에 자식들을 추가
+
+          // 자식 문서가 있다면 재귀적으로 추가
+          item.documents.forEach((doc) => {
+            // 부모 아래에 자식 문서 추가
+            idTree[parentId][doc.id] = {};
+
+            // 자식 문서가 또 다른 자식을 가질 수 있으면 재귀적으로 처리
+            if (doc.documents && doc.documents.length > 0) {
+              addSubDocuments(doc, idTree[parentId][doc.id]);
+            }
+          });
+        });
+
+        return idTree;
+      }
+
+      // 자식 문서를 재귀적으로 추가하는 함수
+      function addSubDocuments(doc, parent) {
+        doc.documents.forEach((subDoc) => {
+          // 자식 문서를 추가
+          parent[subDoc.id] = {};
+
+          // 자식 문서가 또 자식 문서를 가질 경우, 재귀적으로 처리
+          if (subDoc.documents && subDoc.documents.length > 0) {
+            addSubDocuments(subDoc, parent[subDoc.id]);
+          }
+        });
+      }
+
+      // 주어진 ID의 부모 경로를 찾는 함수
+      async function findParents(id) {
+        const idTree = await getIdTree();
+        const parents = [];
+
+        // 트리를 깊이 우선 탐색(DFS)하면서 부모 경로를 찾는 함수
+        function searchTree(node, currentPath) {
+          // 자식 노드를 탐색
+          for (const key in node) {
+            if (node.hasOwnProperty(key)) {
+              // 해당 자식이 찾고자 하는 ID인 경우
+              if (key === id) {
+                parents.push(...currentPath, key); // 현재 경로에 ID를 추가
+                return true;
+              }
+              // 자식 노드에 대해서 재귀적으로 탐색
+              const newPath = [...currentPath, key];
+              if (searchTree(node[key], newPath)) {
+                return true; // 경로가 발견되면 종료
+              }
+            }
+          }
+          return false;
+        }
+
+        // 트리 탐색 시작
+        searchTree(idTree, []);
+        return parents;
+      }
       
+      findParents(url).then((result) => {
+        const navEl = document.querySelector(".nav");
+        if (navEl.hasChildNodes()) navEl.replaceChildren();
+        result.forEach((id, i) => {
+          const idDiv = document.createElement("div");
+          idDiv.textContent = id;
+          idDiv.classList.add("nav_id")
+          navEl.appendChild(idDiv);
+          if (i < result.length - 1) {
+            const slash = document.createElement("span");
+            slash.textContent =  " / ";
+            navEl.appendChild(slash);
+          }
+        });
+      });
 
       // 새로운 페이지 콘텐츠 로드
       getContent(url).then((data) => {
-        console.log(data);
         const title = data.title;
         const content = data.content || ""; // content가 null이면 빈 문자열로 설정
 
         notionWrap__section.innerHTML = `
           <!-- 타이틀 영역  -->
           <h1 class="notionWrap__section_title">
-            <input placeholder="여기에 제목 입력" value="${title}" />
+            <input placeholder="New page" value="${title}" />
           </h1>
           <!-- 컨텐츠 영역 -->
           <section class="notionWrap__section_text">
@@ -227,49 +308,13 @@ function pageGo() {
           const updatedContent = getAllTextareasContent();
 
           // 제목 수정 후 PUT 요청을 통해 서버에 저장
-          editContent(url, updatedTitle, updatedContent)
-            .then(() => {
-              // PUT 요청이 성공적으로 완료된 후 사이드바에서 제목을 갱신
-              const personalPage__PageList = document.querySelector(
-                ".personalPage__PageList"
-              );
-
-              // 사이드바의 제목을 수정하는 부분
-              const listItem = personalPage__PageList.querySelector(
-                `.ListItem[data-url='${url}']`
-              );
-              if (listItem) {
-                // 수정된 제목을 반영
-                listItem.querySelector(".page-title").textContent =
-                  updatedTitle;
-              }
-
-              // 업데이트된 내용으로 사이드바 리스트를 다시 렌더링
-              getData().then((data) => {
-                // 기존의 페이지 리스트를 모두 제거하고 새로 렌더링
-                while (personalPage__PageList.hasChildNodes()) {
-                  personalPage__PageList.removeChild(
-                    personalPage__PageList.firstChild
-                  );
-                }
-
-                const dataKeys = Object.keys(data);
-                dataKeys.forEach((key) => {
-                  pages[data[key].id] = newPage(
-                    data[key].title,
-                    data[key].content
-                  );
-                  personalPage__PageList.appendChild(
-                    newList(data[key].id, data[key].title)
-                  );
-                });
-                // 페이지 변경 없이 사이드바만 업데이트
-                pageGo();
-              });
-            })
-            .catch((error) => {
-              console.error("Failed", error);
-            });
+          editContent(url, updatedTitle, updatedContent);
+          const sidebarItem = document.querySelector(
+            `.personalPage__PageList .ListItem__pageLink[data-url="${url}"]`
+          );
+          if (sidebarItem) {
+            sidebarItem.textContent = updatedTitle;
+          }
         });
 
         // 콘텐츠 영역에서 textarea의 내용이 변경될 때마다 업데이트
@@ -503,36 +548,18 @@ function newPage(title, content) {
   const pageTemplet = `
     <!-- 타이틀 영역  -->
     <h1 class="notionWrap__section_title">
-      <input placeholder="여기에 제목 입력" value="${title}" />
+      <input placeholder="New Page" value="${title}" />
     </h1>
     <!-- 컨텐츠 영역 -->
     <section class="notionWrap__section_text">
+    </section>
+        <div class="textarea-wrapper">
       <textarea
-        placeholder="여기에 내용 입력"
+        placeholder="Write something, or press 'space' for AI, '/' for commands..."
+        class="gothic-a1-regular textareas"
         value="${content}"
       ></textarea>
-    </section>
-    <!-- 하위 페이지 생성시 예시 -->
-    <div class="notionWrap__section_newPage">
-      <svg
-        role="graphics-symbol"
-        viewBox="0 0 16 16"
-        class="pageEmpty"
-        style="
-          width: 19.8px;
-          height: 19.8px;
-          display: block;
-          fill: rgb(145, 145, 142);
-          flex-shrink: 0;
-        "
-      >
-        <path
-          d="M4.35645 15.4678H11.6367C13.0996 15.4678 13.8584 14.6953 13.8584 13.2256V7.02539C13.8584 6.0752 13.7354 5.6377 13.1406 5.03613L9.55176 1.38574C8.97754 0.804688 8.50586 0.667969 7.65137 0.667969H4.35645C2.89355 0.667969 2.13477 1.44043 2.13477 2.91016V13.2256C2.13477 14.7021 2.89355 15.4678 4.35645 15.4678ZM4.46582 14.1279C3.80273 14.1279 3.47461 13.7793 3.47461 13.1436V2.99219C3.47461 2.36328 3.80273 2.00781 4.46582 2.00781H7.37793V5.75391C7.37793 6.73145 7.86328 7.20312 8.83398 7.20312H12.5186V13.1436C12.5186 13.7793 12.1836 14.1279 11.5205 14.1279H4.46582ZM8.95703 6.02734C8.67676 6.02734 8.56055 5.9043 8.56055 5.62402V2.19238L12.334 6.02734H8.95703Z"
-        ></path>
-      </svg>
-      <p class="notionWrap__section_newPage-text">New page</p>
-    </div>
-    <!-- 하위 페이지 생성시 예시 -->
+      </div>
   `;
   return pageTemplet;
 }
